@@ -1,0 +1,19 @@
+# Credentials – never commit
+.env
+Cursor_Railway_airlock.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
