@@ -14,10 +14,7 @@ from parsing import (
     filter_drawings_by_filename,
 )
 
-mcp = FastMCP(
-    "Procurement Airlock",
-    json_response=True,
-)
+mcp = FastMCP("Procurement Airlock")
 
 SPREADSHEET_EXTENSIONS = [".xls", ".xlsx", ".csv"]
 DRAWING_EXTENSIONS = [".pdf", ".dwg", ".dxf", ".png", ".jpg"]
@@ -110,4 +107,5 @@ if __name__ == "__main__":
         transport="streamable-http",
         host="0.0.0.0",
         port=port,
+        json_response=True,
     )
