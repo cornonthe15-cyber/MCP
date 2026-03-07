@@ -102,10 +102,9 @@ def search_technical_drawings(
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    mcp.run(
-        transport="streamable-http",
-        host="0.0.0.0",
-        port=port,
-        json_response=True,
-    )
+    # FastMCP 1.x reads host/port/json_response from env vars, not run() kwargs.
+    # Railway injects PORT; map it to FASTMCP_PORT.
+    os.environ.setdefault("FASTMCP_HOST", "0.0.0.0")
+    os.environ["FASTMCP_PORT"] = os.environ.get("PORT", "8000")
+    os.environ.setdefault("FASTMCP_JSON_RESPONSE", "true")
+    mcp.run(transport="streamable-http")
