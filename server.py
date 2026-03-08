@@ -4,6 +4,11 @@ Uses FastMCP with streamable-http for Railway deployment.
 """
 import os
 
+# Must be set before FastMCP is imported/instantiated so it binds to 0.0.0.0
+# and on the port Railway assigns via $PORT.
+os.environ.setdefault("FASTMCP_HOST", "0.0.0.0")
+os.environ["FASTMCP_PORT"] = os.environ.get("PORT", "8000")
+
 from mcp.server.fastmcp import FastMCP
 
 import github_client as gh
@@ -102,9 +107,4 @@ def search_technical_drawings(
 
 
 if __name__ == "__main__":
-    # FastMCP 1.x reads host/port/json_response from env vars, not run() kwargs.
-    # Railway injects PORT; map it to FASTMCP_PORT.
-    os.environ.setdefault("FASTMCP_HOST", "0.0.0.0")
-    os.environ["FASTMCP_PORT"] = os.environ.get("PORT", "8000")
-    os.environ.setdefault("FASTMCP_JSON_RESPONSE", "true")
     mcp.run(transport="streamable-http")
