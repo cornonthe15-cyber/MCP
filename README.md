@@ -1,55 +1,73 @@
 # MCP Procurement Airlock Server
 
-Read-only MCP server that exposes procurement data (Excel/CSV logs and technical drawings) from a private GitHub repo. Designed for 1-click deployment on Railway.
+Read-only MCP server that exposes procurement data (Excel/CSV exports and technical drawings) from a private GitHub repo. Designed for 1-click deployment on Railway.
+
+For architecture, deployment constraints, and bug-prevention context, see **[PROJECT.md](PROJECT.md)**.
+
+---
 
 ## Quick start
 
-1. Set environment variables (see `.env.example`):
-   - `GITHUB_TOKEN` – Personal access token with `repo` scope (read-only).
-   - `GITHUB_REPO` – `owner/repo` of the private repo.
-   - `DATA_PATH` – Optional path prefix inside the repo (e.g. `procurement/`).
-   - `DRAWINGS_PATH` – Optional path for drawings (defaults to `DATA_PATH`).
-   For local runs, copy `.env.example` to `.env` (or use `Cursor_Railway_airlock.env` in the project root), fill in your credentials, and the server will use them (no need to export variables manually).
+1. Set environment variables (copy `.env.example` to `.env` and fill in):
+   - `GITHUB_TOKEN` — Personal access token with `repo` scope (read-only).
+   - `GITHUB_REPO` — `owner/repo` of the private data repo (e.g. `cornonthe15-cyber/Data_exports`).
+   - `DATA_PATH` — Optional path prefix inside the repo (e.g. `exports/`). Defaults to repo root.
 
 2. Install and run locally:
    ```bash
    pip install -r requirements.txt
    python server.py
    ```
-   Server listens on `http://0.0.0.0:8000` (or `PORT` if set). MCP endpoint: `http://localhost:8000/mcp`.
+   MCP endpoint: `http://localhost:8000/mcp`
 
-3. Deploy to Railway: connect the repo and add the env vars; Railway uses the `Procfile` (`web: python server.py`).
+3. Deploy to Railway: connect this repo, add the env vars as Railway secrets. Railway uses the `Procfile` (`web: python server.py`) and `.python-version` (Python 3.11) automatically.
 
-## Data_exports repo
-
-The server is configured for the private repo **cornonthe15-cyber/Data_exports**. Set `GITHUB_REPO=cornonthe15-cyber/Data_exports` and a PAT in `GITHUB_TOKEN`. `DATA_PATH` and `DRAWINGS_PATH` depend on your folder layout inside that repo—run the discovery script below to inspect the structure and choose paths.
-
-**Discovery script:** Run `python scripts/list_repo_contents.py` (with env set) to list repo contents and see spreadsheet/drawing paths so you can set `DATA_PATH` and `DRAWINGS_PATH`.
-
-**Peek export data:** Run `python scripts/peek_export_files.py` to print the first few lines (column names + sample rows) of each spreadsheet in the repo. Use this to verify parsing and to tune column heuristics in `parsing/inventory.py` and `parsing/pricing.py` if your NetSuite column names differ.
+---
 
 ## Tools
 
-- **get_inventory_summary** – Parses Excel/CSV (including NetSuite .xls XML) and returns a summarized stock-level table. Use `file_path` or leave empty to use the first spreadsheet under `DATA_PATH`.
-- **analyze_vendor_pricing** – Compares historical pricing by part and flags variance over 10%. Uses all spreadsheets under `DATA_PATH`.
-- **search_technical_drawings** – Searches filenames under `DRAWINGS_PATH` (or `DATA_PATH`) for drawing number and/or job number. Returns matching filenames and repo paths.
+- **`list_repo_files(path="")`** — Lists all files under a path in the data repo (defaults to root). Returns name, path, size, and extension. Use this first to discover what data is available.
+- **`get_file_contents(path)`** — Fetches a file by its repo path and returns its contents. Spreadsheets (`.xls`, `.xlsx`, `.csv`) are returned as CSV text. Binary files (PDF, DWG, etc.) return metadata only.
 
-All access is read-only; no write/delete operations.
+All access is read-only — no write or delete operations.
 
-## Tuning for your data
+---
 
-When you have sample files, you can refine behavior without changing tool contracts:
+## Updating the data
 
-- **Column heuristics** – In `parsing/inventory.py`, edit `QUANTITY_ALIASES`, `PART_ALIASES`, and `LOCATION_ALIASES`. In `parsing/pricing.py`, edit `PART_ALIASES`, `PRICE_ALIASES`, `DATE_ALIASES`, and `VENDOR_ALIASES` to match your NetSuite/export column names.
-- **NetSuite column names from Data_exports:** To add aliases for your exact export columns:
-  - **Option A (preferred):** Paste the exact column headers (first row) from one inventory export and one pricing/order export. Those names can be added to the alias tuples in `parsing/inventory.py` and `parsing/pricing.py` (e.g. “Item”, “Quantity on Hand”, “Vendor (Bill to)”, “Amount”, “Tran Date”).
-  - **Option B:** Run the server locally with `DATA_PATH` set, call `get_inventory_summary` and `analyze_vendor_pricing` with a known part, and share the tool output (or any “No data” / wrong-column message) so heuristics can be adjusted.
-- **NetSuite .xls (XML)** – The loader in `parsing/inventory.py` tries standard Excel first, then falls back to XML Spreadsheet parsing; namespace and row/cell tags are in `_load_xml_spreadsheet()` if your export format differs.
-- **Paths** – Set `DATA_PATH` and optionally `DRAWINGS_PATH` so the server looks in the right folders. For multiple spreadsheet sources, the server uses all files under `DATA_PATH` with extensions `.xls`, `.xlsx`, `.csv`.
-- **Drawing file types** – In `server.py`, `DRAWING_EXTENSIONS` controls which extensions are searched for technical drawings; add or remove as needed.
+The ERP exports live in the separate private repo `cornonthe15-cyber/Data_exports`. To push new exports:
+
+1. Set `EXPORTS_FOLDER` in `Cursor_Railway_airlock.env` to your local exports folder path.
+2. Drop the new export files into that folder.
+3. Run:
+   ```bash
+   python scripts/upload_exports_to_github.py
+   ```
+   The script uploads new and changed files to the data repo. The MCP server sees updated data immediately on the next tool call — no restart needed.
+
+**Automate with Windows Task Scheduler:**
+
+1. Open Task Scheduler → Create Basic Task.
+2. Trigger: Daily (or after you usually download exports).
+3. Action: Start a program — `python`, arguments: `scripts/upload_exports_to_github.py`, start in: `c:\Users\corno\OneDrive\Documents\00_Projects\MCP`.
+
+Or create a batch file:
+```bat
+cd /d "c:\Users\corno\OneDrive\Documents\00_Projects\MCP"
+python scripts/upload_exports_to_github.py
+```
+
+---
+
+## Discovery scripts
+
+- `python scripts/list_repo_contents.py` — Lists all files in the data repo. Useful for verifying the `DATA_PATH` setting.
+- `python scripts/peek_export_files.py` — Prints the first few rows of each spreadsheet. Useful for checking what columns your exports contain.
+
+---
 
 ## Security
 
-- Only GitHub read operations (get repo, list contents, get file content) are used.
-- No tools accept delete or modify targets; no local write paths to source data.
-- Store `GITHUB_TOKEN` as a secret in Railway (or in `.env` locally, and keep `.env` out of version control).
+- Only GitHub read operations are used (get file, list contents).
+- `GITHUB_TOKEN` should be stored as a Railway secret, never committed to this repo.
+- `.env` and `Cursor_Railway_airlock.env` are gitignored.
