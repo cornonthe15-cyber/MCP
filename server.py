@@ -10,7 +10,8 @@ from mcp.server.fastmcp import FastMCP
 
 import github_client as gh
 
-mcp = FastMCP("Procurement Airlock")
+_port = int(os.environ.get("PORT", "8000"))
+mcp = FastMCP("Procurement Airlock", host="0.0.0.0", port=_port)
 
 BINARY_EXTENSIONS = {".pdf", ".dwg", ".dxf", ".png", ".jpg", ".jpeg", ".gif", ".zip", ".docx"}
 SPREADSHEET_EXTENSIONS = {".xls", ".xlsx", ".csv"}
@@ -160,5 +161,4 @@ def _xml_spreadsheet_to_csv(data: bytes) -> str:
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", "8000"))
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
+    mcp.run(transport="streamable-http")
