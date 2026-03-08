@@ -1,20 +1,10 @@
 """
 MCP Procurement Airlock Server — read-only access to procurement data from a private GitHub repo.
 Uses FastMCP with streamable-http for Railway deployment.
-
-See PROJECT.md for architecture, deployment constraints, and the reasoning behind
-the env var setup below (must happen before FastMCP is imported).
 """
 import io
 import json
 import os
-
-# IMPORTANT: must be set before 'from mcp.server.fastmcp import FastMCP'.
-# FastMCP reads FASTMCP_HOST and FASTMCP_PORT at import/init time.
-# Railway injects PORT but FastMCP reads FASTMCP_PORT — this mapping is intentional.
-# FASTMCP_HOST must be 0.0.0.0 or Railway's router cannot reach the process.
-os.environ.setdefault("FASTMCP_HOST", "0.0.0.0")
-os.environ["FASTMCP_PORT"] = os.environ.get("PORT", "8000")
 
 from mcp.server.fastmcp import FastMCP
 
@@ -170,4 +160,5 @@ def _xml_spreadsheet_to_csv(data: bytes) -> str:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="streamable-http")
+    port = int(os.environ.get("PORT", "8000"))
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
